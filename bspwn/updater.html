@@ -1,0 +1,277 @@
+<!--
+
+    EndPwn3.2 Updater
+
+    Copyright 2018 EndPwn Project
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+    https://github.com/endpwn/
+
+-->
+
+<html>
+
+<head>
+    <script src="glslsandbox.js"></script>
+
+    <script id="shaderCode" type="x-shader/x-fragment">
+        //pastel psx/dreamcast thingy
+        // @samloeschen
+
+        #ifdef GL_ES
+        precision mediump float;
+        #endif
+
+        #define M_PI 3.1415926535897932384626433832795
+
+        uniform float time;
+        uniform vec2 mouse;
+        uniform vec2 resolution;
+
+
+        // 2D Random
+        float random (in vec2 st) {
+            return fract(sin(dot(st.xy, vec2(12.9898,78.233)))* 43758.5453123);
+        }
+
+        // 2D Noise based on Morgan McGuire @morgan3d
+        // https://www.shadertoy.com/view/4dS3Wd
+        float noise (in vec2 st) {
+            vec2 i = floor(st);
+            vec2 f = fract(st);
+
+            // Four corners in 2D of a tile
+            float a = random(i);
+            float b = random(i + vec2(1.0, 0.0));
+            float c = random(i + vec2(0.0, 1.0));
+            float d = random(i + vec2(1.0, 1.0));
+
+            // Smooth Interpolation
+
+            // Cubic Hermine Curve.  Same as SmoothStep()
+            vec2 u = f*f*(3.0-2.0*f);
+            // u = smoothstep(0.,1.,f);
+
+            // Mix 4 coorners porcentages
+            return mix(a, b, u.x) +
+                    (c - a)* u.y * (1.0 - u.x) +
+                    (d - b) * u.x * u.y;
+        }
+
+        bool boxtest (in vec2 p, in vec2 square, in float w) {
+            return p.x - w < square.x && p.x + w > square.x && p.y - w < square.y && p.y + w > square.y;
+        }
+
+        vec3 palette (in float t) {
+            vec3 a = vec3(0.25,0.5,0.75);
+            vec3 b = vec3(0.75,0.5,0.25);
+            vec3 c = vec3(0.5,0.75,0.25);
+            vec3 d = vec3(0.75,0.25,0.5);
+            return a + b*cos( 2.0*M_PI*(c*t+d) );
+        }
+
+        vec3 drawSquare (in vec2 p, in vec2 square, in vec3 setting) {
+            if(boxtest(p, square, setting.x) && !(boxtest(p, square, setting.x - setting.y)))
+                return palette(setting.z / 70.0 + time * 0.1);
+
+            return vec3(0.0);
+        }
+
+        void main (void) {
+            vec2 uv = (gl_FragCoord.xy / resolution.xy);
+            vec2 aspect = resolution.xy / min(resolution.x, resolution.y);
+            vec2 center = vec2(0.5);
+            vec2 pos = uv - center;
+            float horizon = 0.03*cos(time); //lil motion here
+            float fov = -0.5; //if we negate fov the box has a better palette relationship with the planes
+
+            vec3 p = vec3(pos.x, fov, pos.y - horizon);
+            float scroll = (time * -sign(p.z));
+            float bump = noise((vec2(p.x + 100., p.y) * 1.)) * 1.;
+            vec2 s = vec2(p.x/p.z, p.y/p.z + bump + scroll) * 0.1; //actual plane position
+
+            bool grid = (fract(s.y / 0.02) > 0.95) || (fract(s.x / 0.02) > 0.95);
+            vec3 gridColor = (mix(palette(s.y + bump * 0.5), vec3(0.0), float(grid)));
+            gridColor = mix(gridColor, vec3(0.0), 0.3); //slight desaturate and boost
+            float fog = pow(sin(uv.y * M_PI), 5.);
+            vec3 color = mix(gridColor, vec3(0.0), fog);
+
+            float a = sin(time) * 0.6; //box angle
+            mat2 rot = mat2(cos(a), -sin(a), sin(a), cos(a));
+            pos = uv * aspect * rot;
+            center *= aspect * rot;
+
+            /*for(int i = 0; i < 50; i++) {
+                vec3 d = drawSquare(pos, center + vec2(sin(float(i) / 10.0 + time) / 4.0, 0.0), vec3(0.0 + sin(float(i) / 200.0), 0.01 , float(i)));
+                if(d.x > 0.) color = mix(d, vec3(0.0), 0.3); //slight desaturate and boost
+            }*/
+            gl_FragColor = vec4(color, 0.5);
+        }
+    </script>
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+
+        #ifdef GL_ES
+        precision mediump float;
+        #endif
+
+        uniform vec2 resolution;
+        uniform sampler2D texture;
+
+        void main() {
+
+            vec2 uv = gl_FragCoord.xy / resolution.xy;
+            gl_FragColor = texture2D( texture, uv );
+
+        }
+
+    </script>
+
+    <script id="vertexShader" type="x-shader/x-vertex">
+
+        attribute vec3 position;
+
+        void main() {
+
+            gl_Position = vec4( position, 1.0 );
+
+        }
+
+    </script>
+
+    <script id="surfaceVertexShader" type="x-shader/x-vertex">
+
+        attribute vec3 position;
+        attribute vec2 surfacePosAttrib;
+        varying vec2 surfacePosition;
+
+        void main() {
+
+            surfacePosition = surfacePosAttrib;
+            gl_Position = vec4( position, 1.0 );
+
+        }
+
+    </script>
+
+    <style>
+        @font-face {
+            font-family: 'IBMVGA8';
+            src: url('https://xn--lmbda-2be.cf/fonts/ibm_vga8.eot');
+            src: url('https://xn--lmbda-2be.cf/fonts/ibm_vga8.eot?#iefix') format('embedded-opentype'),
+                 url('https://xn--lmbda-2be.cf/fonts/ibm_vga8.woff2') format('woff2'),
+                 url('https://xn--lmbda-2be.cf/fonts/ibm_vga8.woff') format('woff'),
+                 url('https://xn--lmbda-2be.cf/fonts/ibm_vga8.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'IBMVGA8' !important;
+            text-align: center;
+            background-color: #1a1d23;
+            color: #ffffff
+        }
+
+        div {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(to bottom right, #c0ff80, #c080ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 96px;
+        }
+
+        span {
+            position: absolute;
+            top: 0%;
+            left: 50%;
+            transform: translate(-50%, 0%);
+            color: #f00;
+            font-size: 16px;
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            z-index: -1;
+        }
+    </style>
+
+    <script>
+
+        // wait until DOM is ready so that error messages can display properly
+        window.onload = () => {
+
+            init();
+            if (gl) animate();
+
+            setTimeout(async () => {
+
+                try {
+
+                    window.electron = require('electron').remote;
+                    window.fs = require('original-fs');
+
+                    const data = electron.app.getPath('userData');
+
+                    // TODO: make this...not constant
+                    const approot = 'https://xn--lmbda-2be.cf/';
+
+                    // continue to discord
+                    function load() {
+                        var branch = DiscordNative.globals.releaseChannel;
+                        electron.getCurrentWindow().loadURL('https://' + (branch != 'stable' && branch != 'development' ? branch + '.' : '') + 'discordapp.com/channels/@me');
+                    }
+
+                    // make the plugins and styles dirs if they dont exist
+                    if (!fs.existsSync(data + '/plugins')) fs.mkdirSync(data + '/plugins');
+                    if (!fs.existsSync(data + '/styles')) fs.mkdirSync(data + '/styles');
+
+                    // dont update stuff if DONTUPDATE exists
+                    if (!fs.existsSync(data + '/DONTUPDATE')) {
+
+                        // get files
+                        fs.writeFileSync(data + '/epapi.js', await (await fetch(approot + '/epapi/epapi.js?_=' + Date.now())).text());
+                        fs.writeFileSync(data + '/crispr.js', await (await fetch(approot + '/crispr/crispr.js?_=' + Date.now())).text());
+                        fs.writeFileSync(data + '/rapiddom.js', await (await fetch(approot + '/rapiddom/rapiddom.js?_=' + Date.now())).text());
+                        fs.writeFileSync(data + '/plugins/system.js', await (await fetch(approot + '/plugin/system.js?_=' + Date.now())).text());
+                        fs.writeFileSync(data + '/plugins/customizer.js', await (await fetch(approot + '/plugin/customizer.js?_=' + Date.now())).text());
+                        fs.writeFileSync(data + '/plugins/settings.js', await (await fetch(approot + '/plugin/settings.js?_=' + Date.now())).text());
+                        fs.writeFileSync(data + '/styles/system.css', await (await fetch(approot + '/plugin/system.css?_=' + Date.now())).text());
+
+                    }
+
+                    setTimeout(load, 1000);
+
+                }
+                catch (ex) {
+                    console.error(ex);
+                    alert('Updater failed. Check the console for details.', 'EndPwn3.2');
+                }
+
+            }, 500);
+
+        };
+
+    </script>
+
+</head>
+
+<body>
+    <div>L&lambda;mbda</div>
+</body>
+
+</html>
