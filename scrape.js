@@ -58,7 +58,7 @@ function patch(target, resolve) {
             var archive = archiver("zip");
 
             var output = fs.createWriteStream(
-                (config.target || "./out/") + target + ".zip"
+                (config.target || "./") + target + ".zip"
             );
 
             archive.pipe(output);
@@ -119,7 +119,7 @@ async function scrape() {
                             },
                             (err, response, body) => {
                                 fs.writeFile(
-                                    "./out/" + ident + ".orig.zip",
+                                    "./" + ident + ".orig.zip",
                                     body,
                                     () => {
                                         console.log("done downloading");

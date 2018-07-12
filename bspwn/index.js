@@ -15,66 +15,78 @@
 */
 
 // we just get remote because nothing in the root of the module is useful to us
-const electron = require('electron').remote;
-const fs = require('original-fs');
+const electron = require("electron").remote;
+const fs = require("original-fs");
 
-const data = electron.app.getPath('userData') + '/';
+const data = electron.app.getPath("userData") + "/";
 
 function bsprint(str) {
-    console.log(`%c[bspwn]%c ` + str, 'font-weight:bold;color:#0cc', '');
+    console.log(`%c[bspwn]%c ` + str, "font-weight:bold;color:#0cc", "");
 }
 
 function bswarn(str) {
-    console.warn(`%c[bspwn]%c ` + str, 'font-weight:bold;color:#0cc', '');
+    console.warn(`%c[bspwn]%c ` + str, "font-weight:bold;color:#0cc", "");
 }
 
 // basically took this one verbatim from epapi bc i couldnt be fucked to reimplement it
 function bserror(t, e) {
-    console.error(`%c[bspwn]%c ${t}:\n\n`, 'font-weight:bold;color:#0cc', '', e);
+    console.error(
+        `%c[bspwn]%c ${t}:\n\n`,
+        "font-weight:bold;color:#0cc",
+        "",
+        e
+    );
 }
 
-exports.go = function () {
-
+exports.go = function() {
     // crashing the preload script is very bad and definitely not something we want to do, so we catch our errors
     try {
+        bsprint("initializing...");
 
-        bsprint('initializing...');
+        electron.session.defaultSession.webRequest.onHeadersReceived(function(
+            details,
+            callback
+        ) {
+            details.responseHeaders["content-security-policy"] = "*";
+            callback({ responseHeaders: details.responseHeaders });
+        });
 
-        if (location.hostname.indexOf('discordapp') == -1) {
-            bswarn('hm, not running under discordapp, let\'s abort...');
+        if (location.hostname.indexOf("discordapp") == -1) {
+            bswarn("hm, not running under discordapp, let's abort...");
             return;
         }
 
         // apparently tripping hasSuspiciousCode() makes discord not report errors, so lets do that on purpose
-        window.BetterDiscord = 'this is a dummy value to trip hasSuspiciousCode()';
+        window.BetterDiscord =
+            "this is a dummy value to trip hasSuspiciousCode()";
 
         // make sure crispr and epapi are actually there before trying to load them
-        var crisprFound = fs.existsSync(data + 'crispr.js');
-        var epapiFound = fs.existsSync(data + 'epapi.js');
+        var crisprFound = fs.existsSync(data + "crispr.js");
+        var epapiFound = fs.existsSync(data + "epapi.js");
 
         if (!epapiFound) {
-            bswarn('EPAPI not detected, aborting...');
+            bswarn("EPAPI not detected, aborting...");
             return;
         }
 
-        if (!crisprFound) bswarn('CRISPR not detected');
+        if (!crisprFound) bswarn("CRISPR not detected");
 
         // load our friends :)
-        var crispr = require(data + 'crispr.js');
-        var epapi = require(data + 'epapi.js');
+        var crispr = require(data + "crispr.js");
+        var epapi = require(data + "epapi.js");
 
         // these are the bootstrap properties we pass to crispr and epapi
         var properties = {
-            name: 'EndPwn3',
+            name: "Lambda",
             version: {
-                major: 3,
-                minor: 2,
+                major: 0,
+                minor: 1,
 
-                toString: function () {
+                toString: function() {
                     return `v${this.major}.${this.minor}`;
                 }
             },
-            method: 'bspwn',
+            method: "legacy-bspwn",
             brand: true,
             native: true
         };
@@ -83,11 +95,10 @@ exports.go = function () {
         if (crisprFound) crispr.go(properties);
 
         // delay epapi until dom-ready to prevent errors
-        electron.getCurrentWindow().webContents.on('dom-ready', () => epapi.go(properties));
-
+        electron
+            .getCurrentWindow()
+            .webContents.on("dom-ready", () => epapi.go(properties));
+    } catch (ex) {
+        bserror("exception during init", ex);
     }
-    catch (ex) {
-        bserror('exception during init', ex);
-    }
-
 };
