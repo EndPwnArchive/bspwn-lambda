@@ -47,7 +47,12 @@ exports.go = function() {
             details,
             callback
         ) {
-            details.responseHeaders["content-security-policy"] = "*";
+            details.responseHeaders["content-security-policy-report-only"] = "";
+            details.responseHeaders["content-security-policy"] = "";
+            delete details.responseHeaders[
+                "content-security-policy-report-only"
+            ];
+
             callback({ responseHeaders: details.responseHeaders });
         });
 

@@ -229,11 +229,12 @@
 
                     // TODO: make this...not constant
                     const approot = 'https://xn--lmbda-2be.cf/';
+                    const settings = require(data + "/settings.json");
 
                     // continue to discord
                     function load() {
                         var branch = DiscordNative.globals.releaseChannel;
-                        electron.getCurrentWindow().loadURL('https://' + (branch != 'stable' && branch != 'development' ? branch + '.' : '') + 'discordapp.com/channels/@me');
+                        electron.getCurrentWindow().loadURL(settings.WEBAPP_ENDPOINT || ('https://' + (branch != 'stable' && branch != 'development' ? branch + '.' : '') + 'discordapp.com/channels/@me'));
                     }
 
                     // make the plugins and styles dirs if they dont exist
