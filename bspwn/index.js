@@ -15,10 +15,11 @@
 */
 
 // we just get remote because nothing in the root of the module is useful to us
-const electron = require("electron").remote;
+const electron = require("electron");
+const remote = electron.remote;
 const fs = require("original-fs");
 
-const data = electron.app.getPath("userData") + "/";
+const data = remote.app.getPath("userData") + "/";
 
 function bsprint(str) {
     console.log(`%c[bspwn]%c ` + str, "font-weight:bold;color:#0cc", "");
@@ -43,7 +44,8 @@ exports.go = function() {
     try {
         bsprint("initializing...");
 
-        electron.session.defaultSession.webRequest.onHeadersReceived(function(
+        electron.webFrame.registerURLSchemeAsBypassingCSP("https");
+        remote.session.defaultSession.webRequest.onHeadersReceived(function(
             details,
             callback
         ) {
@@ -100,7 +102,7 @@ exports.go = function() {
         if (crisprFound) crispr.go(properties);
 
         // delay epapi until dom-ready to prevent errors
-        electron
+        remote
             .getCurrentWindow()
             .webContents.on("dom-ready", () => epapi.go(properties));
     } catch (ex) {
